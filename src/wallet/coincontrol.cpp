@@ -23,4 +23,6 @@ void CCoinControl::SetNull()
     m_fee_mode = FeeEstimateMode::UNSET;
     m_min_depth = DEFAULT_MIN_DEPTH;
     m_max_depth = DEFAULT_MAX_DEPTH;
+    m_external_txouts.clear();
+    m_external_provider = FlatSigningProvider();
 }

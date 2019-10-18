@@ -1537,19 +1537,13 @@ int64_t CWalletTx::GetTxTime() const
 
 // Helper for producing a max-sized low-S low-R signature (eg 71 bytes)
 // or a max-sized low-S signature (e.g. 72 bytes) if use_max_sig is true
-bool CWallet::DummySignInput(CTxIn &tx_in, const CTxOut &txout, bool use_max_sig) const
+static bool DummySignInput(const SigningProvider& provider, CTxIn &tx_in, const CTxOut &txout, bool use_max_sig)
 {
     // Fill in dummy signatures for fee calculation.
     const CScript& scriptPubKey = txout.scriptPubKey;
     SignatureData sigdata;
 
-    std::unique_ptr<SigningProvider> provider = GetSolvingProvider(scriptPubKey);
-    if (!provider) {
-        // We don't know about this scriptpbuKey;
-        return false;
-    }
-
-    if (!ProduceSignature(*provider, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
+    if (!ProduceSignature(provider, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
         return false;
     }
     UpdateInput(tx_in, sigdata);
@@ -1557,14 +1551,21 @@ bool CWallet::DummySignInput(CTxIn &tx_in, const CTxOut &txout, bool use_max_sig
 }
 
 // Helper for producing a bunch of max-sized low-S low-R signatures (eg 71 bytes)
-bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, bool use_max_sig) const
+bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, const CCoinControl* coin_control) const
 {
     // Fill in dummy signatures for fee calculation.
     int nIn = 0;
     for (const auto& txout : txouts)
     {
-        if (!DummySignInput(txNew.vin[nIn], txout, use_max_sig)) {
-            return false;
+        CTxIn& txin = txNew.vin[nIn];
+        // Use max sig if watch only inputs were used or if this particular input is an external input
+        // to ensure a sufficient fee is attained for the requested feerate.
+        const bool use_max_sig = coin_control && (coin_control->fAllowWatchOnly || coin_control->IsExternalSelected(txin.prevout));
+        const std::unique_ptr<SigningProvider> provider = GetSolvingProvider(txout.scriptPubKey);
+        if (!provider || !DummySignInput(*provider, txin, txout, use_max_sig)) {
+            if (!coin_control || !DummySignInput(coin_control->m_external_provider, txin, txout, use_max_sig)) {
+                return false;
+            }
         }
 
         nIn++;
@@ -1626,26 +1627,34 @@ bool CWallet::ImportScriptPubKeys(const std::string& label, const std::set<CScri
 }
 
 // Returns pair of vsize and weight
-std::pair<int64_t, int64_t> CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig)
+std::pair<int64_t, int64_t> CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const CCoinControl* coin_control)
 {
     std::vector<CTxOut> txouts;
+    // Look up the inputs. The inputs are either in the wallet, or in coin_control.
     for (const CTxIn& input : tx.vin) {
         const auto mi = wallet->mapWallet.find(input.prevout.hash);
         // Can not estimate size without knowing the input details
-        if (mi == wallet->mapWallet.end()) {
+        if (mi != wallet->mapWallet.end()) {
+            assert(input.prevout.n < mi->second.tx->vout.size());
+            txouts.emplace_back(mi->second.tx->vout.at(input.prevout.n));
+        } else if (coin_control) {
+            CTxOut txout;
+            if (!coin_control->GetExternalOutput(input.prevout, txout)) {
+                return std::make_pair(-1, -1);
+            }
+            txouts.emplace_back(txout);
+        } else {
             return std::make_pair(-1, -1);
         }
-        assert(input.prevout.n < mi->second.tx->vout.size());
-        txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
     }
-    return CalculateMaximumSignedTxSize(tx, wallet, txouts, use_max_sig);
+    return CalculateMaximumSignedTxSize(tx, wallet, txouts, coin_control);
 }
 
 // txouts needs to be in the order of tx.vin
-std::pair<int64_t, int64_t> CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, bool use_max_sig)
+std::pair<int64_t, int64_t> CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, const CCoinControl* coin_control)
 {
     CMutableTransaction txNew(tx);
-    if (!wallet->DummySignTx(txNew, txouts, use_max_sig)) {
+    if (!wallet->DummySignTx(txNew, txouts, coin_control)) {
         return std::make_pair(-1, -1);
     }
     CTransaction ctx(txNew);
@@ -1654,14 +1663,20 @@ std::pair<int64_t, int64_t> CalculateMaximumSignedTxSize(const CTransaction &tx,
     return std::make_pair(vsize, weight);
 }
 
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const SigningProvider* provider, bool use_max_sig)
 {
     CMutableTransaction txn;
     txn.vin.push_back(CTxIn(COutPoint()));
-    if (!wallet->DummySignInput(txn.vin[0], txout, use_max_sig)) {
+    if (!provider || !DummySignInput(*provider, txn.vin[0], txout, use_max_sig)) {
         return -1;
     }
     return GetVirtualTransactionInputSize(txn.vin[0]);
+}
+
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
+{
+    const std::unique_ptr<SigningProvider> provider = wallet->GetSolvingProvider(txout.scriptPubKey);
+    return CalculateMaximumSignedInputSize(txout, provider.get(), use_max_sig);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
@@ -2450,32 +2465,40 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
 
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
-    for (const COutPoint& outpoint : vPresetInputs)
-    {
+    for (const COutPoint& outpoint : vPresetInputs) {
+        int input_bytes = -1;
+        CTxOut txout;
         std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(outpoint.hash);
-        if (it != mapWallet.end())
-        {
+        if (it != mapWallet.end()) {
             const CWalletTx& wtx = it->second;
             // Clearly invalid input, fail
             if (wtx.tx->vout.size() <= outpoint.n) {
                 return false;
             }
-            // Just to calculate the marginal byte size
-            CInputCoin coin(wtx.tx, outpoint.n, wtx.GetSpendSize(outpoint.n, false));
-            nValueFromPresetInputs += coin.txout.nValue;
-            if (coin.m_input_bytes <= 0) {
-                return false; // Not solvable, can't estimate size for fee
-            }
-            coin.effective_value = coin.txout.nValue - coin_selection_params.m_effective_feerate.GetFee(coin.m_input_bytes);
-            if (coin_selection_params.use_bnb) {
-                value_to_select -= coin.effective_value;
-            } else {
-                value_to_select -= coin.txout.nValue;
-            }
-            setPresetCoins.insert(coin);
-        } else {
-            return false; // TODO: Allow non-wallet inputs
+            input_bytes = wtx.GetSpendSize(outpoint.n, false);
+            txout = wtx.tx->vout.at(outpoint.n);
         }
+        if (input_bytes == -1) {
+            // The input is external. We either did not find the tx in mapWallet, or we did but couldn't compute the input size with wallet data
+            if (!coin_control.GetExternalOutput(outpoint, txout)) {
+                // Not ours, and we don't have solving data.
+                return false;
+            }
+            input_bytes = CalculateMaximumSignedInputSize(txout, &coin_control.m_external_provider, /* use_max_sig */ true);
+        }
+
+        CInputCoin coin(outpoint, txout, input_bytes);
+        nValueFromPresetInputs += coin.txout.nValue;
+        if (coin.m_input_bytes <= 0) {
+            return false; // Not solvable, can't estimate size for fee
+        }
+        coin.effective_value = coin.txout.nValue - coin_selection_params.m_effective_feerate.GetFee(coin.m_input_bytes);
+        if (coin_selection_params.use_bnb) {
+            value_to_select -= coin.effective_value;
+        } else {
+            value_to_select -= coin.txout.nValue;
+        }
+        setPresetCoins.insert(coin);
     }
 
     // remove preset inputs from vCoins
@@ -2985,10 +3008,10 @@ bool CWallet::CreateTransactionInternal(
                     txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
                 }
 
-                tx_sizes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly);
+                tx_sizes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, &coin_control);
                 nBytes = tx_sizes.first;
                 if (nBytes < 0) {
-                    error = _("Signing transaction failed");
+                    error = _("Missing solving data for estimating transaction size");
                     return false;
                 }
 
