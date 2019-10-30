@@ -603,7 +603,6 @@ public:
 
 struct CoinSelectionParams
 {
-    bool use_bnb = true;
     size_t change_output_size = 0;
     size_t change_spend_size = 0;
     CFeeRate effective_fee = CFeeRate(0);
@@ -612,8 +611,7 @@ struct CoinSelectionParams
     bool m_subtract_fee_outputs = false;
     bool m_avoid_partial_spends = false;
 
-    CoinSelectionParams(bool use_bnb, size_t change_output_size, size_t change_spend_size, CFeeRate effective_fee, size_t tx_noinputs_size, bool avoid_partial) :
-        use_bnb(use_bnb),
+    CoinSelectionParams(size_t change_output_size, size_t change_spend_size, CFeeRate effective_fee, size_t tx_noinputs_size, bool avoid_partial) :
         change_output_size(change_output_size),
         change_spend_size(change_spend_size),
         effective_fee(effective_fee),
@@ -752,7 +750,7 @@ public:
      * if they are not ours
      */
     bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet,
-                    const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+                    const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /** Get a name for this wallet for logging/debugging purposes.
      */
@@ -830,7 +828,7 @@ public:
      * assembled
      */
     bool SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<COutput> coins,
-        std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
+        std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
