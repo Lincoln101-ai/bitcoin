@@ -281,9 +281,9 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     empty_wallet();
     add_coin(1 * CENT);
     vCoins.at(0).nInputBytes = 40;
-    BOOST_CHECK(!testWallet.SelectCoinsMinConf( 1 * CENT, filter_standard, vCoins, setCoinsRet, nValueRet, coin_selection_params_bnb, bnb_used));
     coin_selection_params_bnb.m_subtract_fee_outputs = true;
     BOOST_CHECK(testWallet.SelectCoinsMinConf( 1 * CENT, filter_standard, vCoins, setCoinsRet, nValueRet, coin_selection_params_bnb, bnb_used));
+    BOOST_CHECK(bnb_used);
     BOOST_CHECK_EQUAL(nValueRet, 1 * CENT);
 
     // Make sure that can use BnB when there are preset inputs
@@ -541,19 +541,20 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
 
           // Again, we only create the wallet once to save time, but we still run the coin selection RUN_TESTS times.
           for (int i = 0; i < RUN_TESTS; i++) {
-            // picking 50 from 100 coins doesn't depend on the shuffle,
+            // picking 50.5 from 100 coins doesn't depend on the shuffle,
             // but does depend on randomness in the stochastic approximation code
-            BOOST_CHECK(testWallet.SelectCoinsMinConf(50 * COIN, filter_standard, vCoins, setCoinsRet , nValueRet, coin_selection_params, bnb_used));
-            BOOST_CHECK(testWallet.SelectCoinsMinConf(50 * COIN, filter_standard, vCoins, setCoinsRet2, nValueRet, coin_selection_params, bnb_used));
+            // Use 50.5 to be sure that BnB doesn't match
+            BOOST_CHECK(testWallet.SelectCoinsMinConf(50.5 * COIN, filter_standard, vCoins, setCoinsRet , nValueRet, coin_selection_params, bnb_used));
+            BOOST_CHECK(testWallet.SelectCoinsMinConf(50.5 * COIN, filter_standard, vCoins, setCoinsRet2, nValueRet, coin_selection_params, bnb_used));
             BOOST_CHECK(!equal_sets(setCoinsRet, setCoinsRet2));
 
             int fails = 0;
             for (int j = 0; j < RANDOM_REPEATS; j++)
             {
-                // selecting 1 from 100 identical coins depends on the shuffle; this test will fail 1% of the time
+                // selecting 0.5 from 100 identical coins depends on the shuffle; this test will fail 1% of the time
                 // run the test RANDOM_REPEATS times and only complain if all of them fail
-                BOOST_CHECK(testWallet.SelectCoinsMinConf(COIN, filter_standard, vCoins, setCoinsRet , nValueRet, coin_selection_params, bnb_used));
-                BOOST_CHECK(testWallet.SelectCoinsMinConf(COIN, filter_standard, vCoins, setCoinsRet2, nValueRet, coin_selection_params, bnb_used));
+                BOOST_CHECK(testWallet.SelectCoinsMinConf(0.5 * COIN, filter_standard, vCoins, setCoinsRet , nValueRet, coin_selection_params, bnb_used));
+                BOOST_CHECK(testWallet.SelectCoinsMinConf(0.5 * COIN, filter_standard, vCoins, setCoinsRet2, nValueRet, coin_selection_params, bnb_used));
                 if (equal_sets(setCoinsRet, setCoinsRet2))
                     fails++;
             }
