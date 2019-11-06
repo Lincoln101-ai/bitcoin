@@ -2381,9 +2381,62 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     if (SelectCoinsBnB(positive_groups, nTargetValue, cost_of_change, setCoinsRet, nValueRet)) {
         return true;
     }
+
     // The knapsack solver has some legacy behavior where it will spend dust outputs. We retain this behavior, so don't filter for positive only here.
     std::vector<OutputGroup> all_groups = GroupOutputs(coins, !coin_selection_params.m_avoid_partial_spends, effective_feerate, long_term_feerate, eligibility_filter, false /* positive_only */);
-    return KnapsackSolver(nTargetValue + change_fee, all_groups, setCoinsRet, nValueRet);
+
+    std::set<CInputCoin> knapsack_coins;
+    CAmount knapsack_value;
+    bool knapsack_ret = KnapsackSolver(nTargetValue + change_fee, all_groups, knapsack_coins, knapsack_value);
+    CAmount knapsack_fees = 0;
+    for (const auto& coin : knapsack_coins) {
+        knapsack_fees += coin.m_fee;
+    }
+
+    std::set<CInputCoin> srd_coins;
+    CAmount srd_value;
+    bool srd_ret = SelectCoinsSRD(positive_groups, nTargetValue + change_fee + MIN_FINAL_CHANGE, srd_coins, srd_value);
+    CAmount srd_fees = 0;
+    for (const auto& coin : srd_coins) {
+        srd_fees += coin.m_fee;
+    }
+
+    if (knapsack_ret && !srd_ret) {
+        setCoinsRet = knapsack_coins;
+        nValueRet = knapsack_value;
+        return true;
+    } else if (!knapsack_ret && srd_ret) {
+        setCoinsRet = srd_coins;
+        nValueRet = srd_value;
+        return true;
+    } else if (!knapsack_ret && !srd_ret) {
+        setCoinsRet.clear();
+        nValueRet = 0;
+        return false;
+    }
+
+    // Both succeeded, choose the one with the smaller fees
+    if (knapsack_fees < srd_fees) {
+        setCoinsRet = knapsack_coins;
+        nValueRet = knapsack_value;
+        return true;
+    } else if (srd_fees < knapsack_fees) {
+        setCoinsRet = srd_coins;
+        nValueRet = srd_value;
+        return true;
+    }
+
+    // Same fees, choose one that consolidates more (more inputs) or Knapsack in the event they are the same
+    if (srd_coins.size() > knapsack_coins.size()) {
+        setCoinsRet = srd_coins;
+        nValueRet = srd_value;
+        return true;
+    } else {
+        // srd_coins.size() <= knapsack_coins.size()
+        setCoinsRet = knapsack_coins;
+        nValueRet = knapsack_value;
+        return true;
+    }
 }
 
 bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params) const
