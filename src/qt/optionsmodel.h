@@ -66,6 +66,7 @@ public:
         DatabaseCache,          // int
         SpendZeroConfChange,    // bool
         Listen,                 // bool
+        EnablePSBTControls,     // bool
         OptionIDRowCount,
     };
 
@@ -85,6 +86,7 @@ public:
     int getDisplayUnit() const { return nDisplayUnit; }
     QString getThirdPartyTxUrls() const { return strThirdPartyTxUrls; }
     bool getCoinControlFeatures() const { return fCoinControlFeatures; }
+    bool getEnablePSBTControls() const { return fEnablePSBTControls; }
     const QString& getOverriddenByCommandLine() { return strOverriddenByCommandLine; }
 
     /* Explicit setters */
@@ -108,6 +110,7 @@ private:
     int nDisplayUnit;
     QString strThirdPartyTxUrls;
     bool fCoinControlFeatures;
+    bool fEnablePSBTControls;
     /* settings that were overridden by command-line */
     QString strOverriddenByCommandLine;
 

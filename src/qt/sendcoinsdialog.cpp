@@ -315,6 +315,8 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
     question_string.append(tr("Do you want to create this transaction?"));
     if (model->wallet().privateKeysDisabled()) {
         question_string.append(tr("Please, review your transaction proposal. This will produce a Partially Signed Bitcoin Transaction (PSBT) which you can save or copy and then sign with e.g. an offline %1 wallet, or a PSBT-compatible hardware wallet.").arg(PACKAGE_NAME));
+    } else if (model->getOptionsModel()->getEnablePSBTControls()) {
+        question_string.append(tr("Please, review your transaction. You can create and send this or transaction. Or you can create a Partially Signed Bitcoin Transaction (PSBT) which you can save or copy and then sign with e.g. an offline %1 wallet, or a PSBT-compatible hardware wallet.").arg(PACKAGE_NAME));
     } else {
         question_string.append(tr("Please, review your transaction."));
     }
@@ -382,7 +384,11 @@ void SendCoinsDialog::on_sendButton_clicked()
     const QString confirmation = tr("Confirm send coins");
     const QString confirmButtonText = tr("Send");
     const QString psbt_button_text = tr("Create Unsigned");
-    SendConfirmationDialog confirmationDialog(confirmation, question_string, informative_text, detailed_text, SEND_CONFIRM_DELAY, confirmButtonText, !model->wallet().privateKeysDisabled(), psbt_button_text, this);
+
+    // Show the Create Unsigned button if set in the options or if private keys are disabled.
+    bool show_unsigned_button = model->getOptionsModel()->getEnablePSBTControls() || model->wallet().privateKeysDisabled();
+
+    SendConfirmationDialog confirmationDialog(confirmation, question_string, informative_text, detailed_text, SEND_CONFIRM_DELAY, confirmButtonText, !model->wallet().privateKeysDisabled(), psbt_button_text, show_unsigned_button, this);
     confirmationDialog.exec();
     QMessageBox::StandardButton retval = static_cast<QMessageBox::StandardButton>(confirmationDialog.result());
 
@@ -959,7 +965,7 @@ void SendCoinsDialog::coinControlUpdateLabels()
     }
 }
 
-SendConfirmationDialog::SendConfirmationDialog(const QString& title, const QString& text, const QString& informative_text, const QString& detailed_text, int _secDelay, const QString& _confirmButtonText, bool enable_send, const QString& psbt_button_text, QWidget* parent)
+SendConfirmationDialog::SendConfirmationDialog(const QString& title, const QString& text, const QString& informative_text, const QString& detailed_text, int _secDelay, const QString& _confirmButtonText, bool enable_send, const QString& psbt_button_text, bool show_unsigned, QWidget* parent)
     : QMessageBox(parent), secDelay(_secDelay), confirmButtonText(_confirmButtonText), m_enable_send(enable_send), m_psbt_button_text(psbt_button_text)
 {
     setIcon(QMessageBox::Question);
@@ -967,7 +973,8 @@ SendConfirmationDialog::SendConfirmationDialog(const QString& title, const QStri
     setText(text);
     setInformativeText(informative_text);
     setDetailedText(detailed_text);
-    setStandardButtons(QMessageBox::Save | QMessageBox::Yes | QMessageBox::Cancel);
+    setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
+    if (show_unsigned) addButton(QMessageBox::Save);
     setDefaultButton(QMessageBox::Cancel);
     yesButton = button(QMessageBox::Yes);
     if (confirmButtonText.isEmpty()) {
@@ -1002,14 +1009,18 @@ void SendConfirmationDialog::updateButtons()
     {
         yesButton->setEnabled(false);
         yesButton->setText(confirmButtonText + (m_enable_send ? (" (" + QString::number(secDelay) + ")") : ""));
-        m_psbt_button->setEnabled(false);
-        m_psbt_button->setText(m_psbt_button_text + " (" + QString::number(secDelay) + ")");
+        if (m_psbt_button) {
+            m_psbt_button->setEnabled(false);
+            m_psbt_button->setText(m_psbt_button_text + " (" + QString::number(secDelay) + ")");
+        }
     }
     else
     {
         yesButton->setEnabled(m_enable_send);
         yesButton->setText(confirmButtonText);
-        m_psbt_button->setEnabled(true);
-        m_psbt_button->setText(m_psbt_button_text);
+        if (m_psbt_button) {
+            m_psbt_button->setEnabled(true);
+            m_psbt_button->setText(m_psbt_button_text);
+        }
     }
 }
