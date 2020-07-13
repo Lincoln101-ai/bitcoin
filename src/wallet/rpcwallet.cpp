@@ -4568,6 +4568,35 @@ static RPCHelpMan walletdisplayaddress()
 }
 #endif // ENABLE_EXTERNAL_SIGNER
 
+static RPCHelpMan migratewallet()
+{
+    return RPCHelpMan{"migratewallet",
+        "\nMigrate the wallet to a descriptor wallet.\n"
+        "A new wallet backup will need to be made.",
+        {},
+        RPCResult{RPCResult::Type::NONE, "", ""},
+        RPCExamples{
+            HelpExampleCli("migratewallet", "")
+            + HelpExampleRpc("migratewallet", "")
+        },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    if (!wallet) return NullUniValue;
+    CWallet* const pwallet = wallet.get();
+
+    EnsureWalletIsUnlocked(*pwallet);
+
+    bilingual_str error;
+    std::vector<bilingual_str> warnings;
+    if (!pwallet->MigrateToDescriptor(error, warnings)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, error.original);
+    }
+    return NullUniValue;
+},
+    };
+}
+
 RPCHelpMan abortrescan();
 RPCHelpMan dumpprivkey();
 RPCHelpMan importprivkey();
@@ -4651,6 +4680,7 @@ static const CRPCCommand commands[] =
     { "wallet",             &walletpassphrase,               },
     { "wallet",             &walletpassphrasechange,         },
     { "wallet",             &walletprocesspsbt,              },
+    { "wallet",             &migratewallet,                  },
 };
 // clang-format on
     return MakeSpan(commands);
