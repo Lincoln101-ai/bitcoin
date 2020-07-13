@@ -1866,6 +1866,69 @@ std::vector<std::unique_ptr<DescriptorScriptPubKeyMan>> LegacyScriptPubKeyMan::M
     return out;
 }
 
+bool LegacyScriptPubKeyMan::DeleteRecords(bilingual_str& error)
+{
+    LOCK(cs_KeyStore);
+    WalletBatch batch(m_storage.GetDatabase());
+    // Remove the watchonly things
+    for (const CScript& script : setWatchOnly) {
+        if (!batch.EraseWatchOnly(script)) {
+            error = strprintf(_("Error: Could not delete watch only script %s"), HexStr(script));
+            return false;
+        }
+    }
+    // Remove private keys
+    for (const auto& key_pair : mapKeys) {
+        const CPubKey& pubkey = key_pair.second.GetPubKey();
+        if (!batch.EraseKey(pubkey)) {
+            error = strprintf(_("Error: Could not delete private key for %s"), HexStr(pubkey));
+            return false;
+        }
+    }
+    for (const auto& key_pair : mapCryptedKeys) {
+        const CPubKey& pubkey = key_pair.second.first;
+        if (!batch.EraseCryptedKey(pubkey)) {
+            error = strprintf(_("Error: Could not delete private key for %s"), HexStr(pubkey));
+            return false;
+        }
+    }
+    // Remove keypool entries
+    for (const int64_t entry : setExternalKeyPool) {
+        if (!batch.ErasePool(entry)) {
+            error = strprintf(_("Error: Could not delete keypool entry for index %d"), entry);
+            return false;
+        }
+    }
+    for (const int64_t entry : setInternalKeyPool) {
+        if (!batch.ErasePool(entry)) {
+            error = strprintf(_("Error: Could not delete keypool entry for index %d"), entry);
+            return false;
+        }
+    }
+    for (const int64_t entry : set_pre_split_keypool) {
+        if (!batch.ErasePool(entry)) {
+            error = strprintf(_("Error: Could not delete keypool entry for index %d"), entry);
+            return false;
+        }
+    }
+    // Remove CScript entries
+    for (const auto& script_pair : mapScripts) {
+        if (!batch.EraseCScript(Hash160(script_pair.second))) {
+            error = strprintf(_("Error: Could not delete script with ID %s"), HexStr(script_pair.first));
+            return false;
+        }
+    }
+    // Remove HDChain if we have it
+    if (!m_hd_chain.seed_id.IsNull()) {
+        if (!batch.EraseHDChain()) {
+            error = _("Error: Could not delete hd chain");
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool DescriptorScriptPubKeyMan::GetNewDestination(const OutputType type, CTxDestination& dest, std::string& error)
 {
     // Returns true if this descriptor supports getting new addresses. Conditions where we may be unable to fetch them (e.g. locked) are caught later

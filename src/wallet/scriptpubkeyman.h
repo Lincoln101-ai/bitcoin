@@ -505,6 +505,8 @@ public:
 
     /** Get the DescriptScriptPubKeyMans that have the same scriptPubKeys as this LegacyScriptPubKeyMan */
     std::vector<std::unique_ptr<DescriptorScriptPubKeyMan>> MigrateToDescriptor(std::vector<std::string>& watch_descs, std::vector<std::string>& solvable_descs);
+    /** Delete all the records of this LegacyScriptPubKeyMan from disk */
+    bool DeleteRecords(bilingual_str& error);
 };
 
 /** Wraps a LegacyScriptPubKeyMan so that it can be returned in a new unique_ptr. Does not provide privkeys */
