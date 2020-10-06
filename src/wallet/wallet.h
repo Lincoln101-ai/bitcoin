@@ -1178,6 +1178,7 @@ public:
     void BlockUntilSyncedToCurrentChain() const EXCLUSIVE_LOCKS_REQUIRED(!::cs_main, !cs_wallet);
 
     /** set a single wallet flag */
+    void SetWalletFlagWithDB(WalletBatch& batch, uint64_t flags) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void SetWalletFlag(uint64_t flags);
 
     /** Unsets a single wallet flag */
