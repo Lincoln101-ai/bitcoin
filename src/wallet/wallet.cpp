@@ -363,8 +363,9 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
     return &(it->second);
 }
 
-void CWallet::UpgradeKeyMetadata()
+void CWallet::UpgradeKeyMetadata(WalletBatch& batch)
 {
+    AssertLockHeld(cs_wallet);
     if (IsLocked() || IsWalletFlagSet(WALLET_FLAG_KEY_ORIGIN_METADATA)) {
         return;
     }
@@ -374,8 +375,8 @@ void CWallet::UpgradeKeyMetadata()
         return;
     }
 
-    spk_man->UpgradeKeyMetadata();
-    SetWalletFlag(WALLET_FLAG_KEY_ORIGIN_METADATA);
+    spk_man->UpgradeKeyMetadata(batch);
+    SetWalletFlagWithDB(batch, WALLET_FLAG_KEY_ORIGIN_METADATA);
 }
 
 bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool accept_no_keys)
@@ -393,7 +394,8 @@ bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool accept_no_key
                 continue; // try another master key
             if (Unlock(_vMasterKey, accept_no_keys)) {
                 // Now that we've unlocked, upgrade the key metadata
-                UpgradeKeyMetadata();
+                WalletBatch batch(GetDatabase());
+                UpgradeKeyMetadata(batch);
                 return true;
             }
         }
