@@ -254,8 +254,6 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
 
     // Make sure that effective value is working in SelectCoinsMinConf when BnB is used
     CoinSelectionParams coin_selection_params_bnb(0, 0, CFeeRate(3000), 0, false);
-    CoinSet setCoinsRet;
-    CAmount nValueRet;
     SelectionResult sel_result;
     empty_wallet();
     add_coin(1);
@@ -285,7 +283,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         coin_control.fAllowOtherInputs = true;
         coin_control.Select(COutPoint(vCoins.at(0).tx->GetHash(), vCoins.at(0).i));
         coin_selection_params_bnb.effective_fee = CFeeRate(0);
-        BOOST_CHECK(wallet->SelectCoins(vCoins, 10 * CENT, setCoinsRet, nValueRet, coin_control, coin_selection_params_bnb, sel_result));
+        BOOST_CHECK(wallet->SelectCoins(vCoins, 10 * CENT, coin_control, coin_selection_params_bnb, sel_result));
     }
 }
 
@@ -619,11 +617,9 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
 
         // Perform selection
         CoinSelectionParams cs_params(34, 148, CFeeRate(0), 0, false);
-        CoinSet out_set;
-        CAmount out_value = 0;
         CCoinControl cc;
         SelectionResult res;
-        BOOST_CHECK(testWallet.SelectCoins(vCoins, target, out_set, out_value, cc, cs_params, res));
+        BOOST_CHECK(testWallet.SelectCoins(vCoins, target, cc, cs_params, res));
         BOOST_CHECK_GE(res.GetSelectedValue(), target);
     }
 }

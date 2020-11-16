@@ -2422,7 +2422,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 }
 
-bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, SelectionResult& result) const
+bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, SelectionResult& result) const
 {
     result.Clear();
 
@@ -2447,8 +2447,6 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             preset_inputs.Insert(out.GetInputCoin(), 0, false, 0, 0, false);
         }
         result.AddInput(preset_inputs);
-        setCoinsRet = result.selected_inputs;
-        nValueRet = result.GetSelectedValue();
         return (result.GetSelectedValue() >= nTargetValue);
     }
 
@@ -2520,14 +2518,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         (m_spend_zero_conf_change && !fRejectLongChains && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max(), true /* include_partial_groups */), vCoins, coin_selection_params, result));
 
     // because SelectCoinsMinConf clears the setCoinsRet, we now add the possible inputs to the coinset
-    util::insert(setCoinsRet, setPresetCoins);
     result.AddInput(preset_inputs);
-
-    // add preset inputs to the total value selected
-    nValueRet += nValueFromPresetInputs;
-
-    setCoinsRet = result.selected_inputs;
-    nValueRet = result.GetSelectedValue();
 
     return res;
 }
@@ -2803,7 +2794,6 @@ bool CWallet::CreateTransactionInternal(
     FeeCalculation feeCalc;
     int nBytes;
     {
-        std::set<CInputCoin> setCoins;
         SelectionResult selection;
         LOCK(cs_wallet);
         txNew.nLockTime = GetLocktimeForNewTransaction(chain(), GetLastBlockHash(), GetLastBlockHeight());
@@ -2884,8 +2874,6 @@ bool CWallet::CreateTransactionInternal(
             }
 
             // Choose coins to use
-            CAmount input_sum = 0;
-            setCoins.clear();
             int change_spend_size = CalculateMaximumSignedInputSize(change_prototype_txout, this);
             // If the wallet doesn't know how to sign change output, assume p2sh-p2wpkh
             // as lower-bound to allow coin selection to do its thing
@@ -2898,7 +2886,7 @@ bool CWallet::CreateTransactionInternal(
             // Calculate the fees for things that aren't inputs
             CAmount not_input_fees = coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
 
-            if (!SelectCoins(vAvailableCoins, nValue + not_input_fees, setCoins, input_sum, coin_control, coin_selection_params, selection))
+            if (!SelectCoins(vAvailableCoins, nValue + not_input_fees, coin_control, coin_selection_params, selection))
             {
                 error = _("Insufficient funds");
                 return false;
