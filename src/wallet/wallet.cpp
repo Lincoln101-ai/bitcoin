@@ -2422,30 +2422,39 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 }
 
-bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params) const
+bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, SelectionResult& result) const
 {
-    SelectionResult result;
+    result.Clear();
+
     std::vector<COutput> vCoins(vAvailableCoins);
     CAmount value_to_select = nTargetValue;
+
+    // The long_term_feerate doesn't matter (and isn't available here) as no selection algorithm is being run
+    OutputGroup preset_inputs(coin_selection_params.effective_fee, CFeeRate(0));
 
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
     if (coin_control.HasSelected() && !coin_control.fAllowOtherInputs)
     {
         for (const COutput& out : vCoins)
         {
-            if (!out.fSpendable)
+            if (!out.fSpendable) {
                  continue;
-            nValueRet += out.tx->tx->vout[out.i].nValue;
-            setCoinsRet.insert(out.GetInputCoin());
+            }
+
+            /* depth, from_me, ancestors, and descendants don't matter for preset inputs as no actual selection is being done. So set them to default 0 or false.
+             * positive_only is set to false because we want to include all preset inputs, even if they are dust.
+             */
+            preset_inputs.Insert(out.GetInputCoin(), 0, false, 0, 0, false);
         }
-        return (nValueRet >= nTargetValue);
+        result.AddInput(preset_inputs);
+        setCoinsRet = result.selected_inputs;
+        nValueRet = result.GetSelectedValue();
+        return (result.GetSelectedValue() >= nTargetValue);
     }
 
     // calculate value from preset inputs and store them
     std::set<CInputCoin> setPresetCoins;
     CAmount nValueFromPresetInputs = 0;
-    // The long_term_feerate doesn't matter (and isn't available here) as no selection algorithm is being run
-    OutputGroup preset_inputs(coin_selection_params.effective_fee, CFeeRate(0));
 
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
@@ -2888,7 +2897,8 @@ bool CWallet::CreateTransactionInternal(
             // Calculate the fees for things that aren't inputs
             CAmount not_input_fees = coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
 
-            if (!SelectCoins(vAvailableCoins, nValue + not_input_fees, setCoins, input_sum, coin_control, coin_selection_params))
+            SelectionResult selection;
+            if (!SelectCoins(vAvailableCoins, nValue + not_input_fees, setCoins, input_sum, coin_control, coin_selection_params, selection))
             {
                 error = _("Insufficient funds");
                 return false;
