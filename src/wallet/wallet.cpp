@@ -2391,10 +2391,8 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     SelectionResult knapsack_result;
     bool knapsack_ret = KnapsackSolver(nTargetValue + change_fee, all_groups, knapsack_result);
 
-    std::set<CInputCoin> srd_coins;
-    CAmount srd_value;
     SelectionResult srd_result;
-    bool srd_ret = SelectCoinsSRD(positive_groups, nTargetValue + change_fee + MIN_FINAL_CHANGE, srd_coins, srd_value, srd_result);
+    bool srd_ret = SelectCoinsSRD(positive_groups, nTargetValue + change_fee + MIN_FINAL_CHANGE, srd_result);
 
     if (knapsack_ret && !srd_ret) {
         setCoinsRet = knapsack_result.selected_inputs;
