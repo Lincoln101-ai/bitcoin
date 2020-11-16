@@ -2388,10 +2388,8 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     // The knapsack solver has some legacy behavior where it will spend dust outputs. We retain this behavior, so don't filter for positive only here.
     std::vector<OutputGroup> all_groups = GroupOutputs(coins, !coin_selection_params.m_avoid_partial_spends, effective_feerate, long_term_feerate, eligibility_filter, false /* positive_only */);
 
-    std::set<CInputCoin> knapsack_coins;
-    CAmount knapsack_value;
     SelectionResult knapsack_result;
-    bool knapsack_ret = KnapsackSolver(nTargetValue + change_fee, all_groups, knapsack_coins, knapsack_value, knapsack_result);
+    bool knapsack_ret = KnapsackSolver(nTargetValue + change_fee, all_groups, knapsack_result);
 
     std::set<CInputCoin> srd_coins;
     CAmount srd_value;
