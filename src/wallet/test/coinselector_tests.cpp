@@ -607,6 +607,7 @@ BOOST_AUTO_TEST_CASE(ApproximateBestSubset)
 // Tests that with the ideal conditions, the coin selector will always be able to find a solution that can pay the target value
 BOOST_AUTO_TEST_CASE(SelectCoins_test)
 {
+    LOCK(testWallet.cs_wallet);
     testWallet.SetupLegacyScriptPubKeyMan();
 
     // Random generator stuff
@@ -632,12 +633,11 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CAmount target = rand.randrange(balance - 1000) + 1000;
 
         // Perform selection
-        CoinSelectionParams coin_selection_params_knapsack(34, 148, CFeeRate(0), 0, false);
-        CoinSelectionParams coin_selection_params_bnb(34, 148, CFeeRate(0), 0, false);
+        CoinSelectionParams cs_params(34, 148, CFeeRate(0), 0, false);
         CoinSet out_set;
         CAmount out_value = 0;
-        BOOST_CHECK(testWallet.SelectCoinsMinConf(target, filter_standard, vCoins, out_set, out_value, coin_selection_params_bnb) ||
-                    testWallet.SelectCoinsMinConf(target, filter_standard, vCoins, out_set, out_value, coin_selection_params_knapsack));
+        CCoinControl cc;
+        BOOST_CHECK(testWallet.SelectCoins(vCoins, target, out_set, out_value, cc, cs_params));
         BOOST_CHECK_GE(out_value, target);
     }
 }
