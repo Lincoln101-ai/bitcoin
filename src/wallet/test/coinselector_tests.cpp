@@ -182,16 +182,16 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     // Select 1 Cent
     add_coin(1 * CENT, 1, expected_result.selected_inputs);
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 1 * CENT, 0.5 * CENT, selection, value_ret, bnb_result));
-    BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
-    BOOST_CHECK_EQUAL(value_ret, 1 * CENT);
+    BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 1 * CENT);
     expected_result.selected_inputs.clear();
     selection.clear();
 
     // Select 2 Cent
     add_coin(2 * CENT, 2, expected_result.selected_inputs);
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 2 * CENT, 0.5 * CENT, selection, value_ret, bnb_result));
-    BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
-    BOOST_CHECK_EQUAL(value_ret, 2 * CENT);
+    BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 2 * CENT);
     expected_result.selected_inputs.clear();
     selection.clear();
 
@@ -199,8 +199,8 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     add_coin(4 * CENT, 4, expected_result.selected_inputs);
     add_coin(1 * CENT, 1, expected_result.selected_inputs);
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 5 * CENT, 0.5 * CENT, selection, value_ret, bnb_result));
-    BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
-    BOOST_CHECK_EQUAL(value_ret, 5 * CENT);
+    BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 5 * CENT);
     expected_result.selected_inputs.clear();
     selection.clear();
 
@@ -212,8 +212,8 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     // Cost of change is greater than the difference between target value and utxo sum
     add_coin(1 * CENT, 1, expected_result.selected_inputs);
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 0.9 * CENT, 0.5 * CENT, selection, value_ret, bnb_result));
-    BOOST_CHECK_EQUAL(value_ret, 1 * CENT);
-    BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 1 * CENT);
+    BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
     expected_result.selected_inputs.clear();
     selection.clear();
 
@@ -228,8 +228,8 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     add_coin(4 * CENT, 4, expected_result.selected_inputs);
     add_coin(1 * CENT, 1, expected_result.selected_inputs);
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 10 * CENT, 0.5 * CENT, selection, value_ret, bnb_result));
-    BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
-    BOOST_CHECK_EQUAL(value_ret, 10 * CENT);
+    BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 10 * CENT);
     expected_result.selected_inputs.clear();
     selection.clear();
 
@@ -239,9 +239,9 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     add_coin(3 * CENT, 3, expected_result.selected_inputs);
     add_coin(2 * CENT, 2, expected_result.selected_inputs);
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 10 * CENT, 5000, selection, value_ret, bnb_result));
-    BOOST_CHECK_EQUAL(value_ret, 10 * CENT);
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 10 * CENT);
     // FIXME: this test is redundant with the above, because 1 Cent is selected, not "too small"
-    // BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
+    // BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
 
     // Select 0.25 Cent, not possible
     BOOST_CHECK(!SelectCoinsBnB(GroupCoins(utxo_pool), 0.25 * CENT, 0.5 * CENT, selection, value_ret, bnb_result));
@@ -270,8 +270,8 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         add_coin(5 * CENT, 7, utxo_pool);
     }
     BOOST_CHECK(SelectCoinsBnB(GroupCoins(utxo_pool), 30 * CENT, 5000, selection, value_ret, bnb_result));
-    BOOST_CHECK_EQUAL(value_ret, 30 * CENT);
-    BOOST_CHECK(equivalent_sets(selection, expected_result.selected_inputs));
+    BOOST_CHECK_EQUAL(bnb_result.GetSelectedValue(), 30 * CENT);
+    BOOST_CHECK(expected_result.EquivalentResult(bnb_result));
 
     ////////////////////
     // Behavior tests //
