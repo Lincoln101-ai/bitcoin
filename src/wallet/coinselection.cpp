@@ -167,8 +167,9 @@ bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_t
     return true;
 }
 
-bool SelectCoinsSRD(std::vector<OutputGroup>& utxo_pool, const CAmount& target_value, std::set<CInputCoin>& out_set, CAmount& value_ret)
+bool SelectCoinsSRD(std::vector<OutputGroup>& utxo_pool, const CAmount& target_value, std::set<CInputCoin>& out_set, CAmount& value_ret, SelectionResult& result)
 {
+    result.Clear();
     out_set.clear();
     value_ret = 0;
 
@@ -178,6 +179,7 @@ bool SelectCoinsSRD(std::vector<OutputGroup>& utxo_pool, const CAmount& target_v
         selected_value += group.effective_value;
         value_ret += group.m_value;
         util::insert(out_set, group.m_outputs);
+        result.AddInput(group);
         if (selected_value >= target_value) {
             return true;
         }
