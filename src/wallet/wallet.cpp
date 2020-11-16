@@ -2355,8 +2355,9 @@ const CTxOut& CWallet::FindNonChangeParentOutput(const CTransaction& tx, int out
 }
 
 bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<COutput> coins,
-                                 std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params) const
+                                 std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, SelectionResult& result) const
 {
+    result.Clear();
     setCoinsRet.clear();
     nValueRet = 0;
 
@@ -2382,6 +2383,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     if (SelectCoinsBnB(positive_groups, nTargetValue, cost_of_change, bnb_result)) {
         setCoinsRet = bnb_result.selected_inputs;
         nValueRet = bnb_result.GetSelectedValue();
+        result = bnb_result;
         return true;
     }
 
@@ -2397,14 +2399,17 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     if (knapsack_ret && !srd_ret) {
         setCoinsRet = knapsack_result.selected_inputs;
         nValueRet = knapsack_result.GetSelectedValue();
+        result = knapsack_result;
         return true;
     } else if (!knapsack_ret && srd_ret) {
         setCoinsRet = srd_result.selected_inputs;
         nValueRet = srd_result.GetSelectedValue();
+        result = srd_result;
         return true;
     } else if (!knapsack_ret && !srd_ret) {
         setCoinsRet.clear();
         nValueRet = 0;
+        result.Clear();
         return false;
     }
 
@@ -2412,10 +2417,12 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     if (knapsack_result.input_fees < srd_result.input_fees) {
         setCoinsRet = knapsack_result.selected_inputs;
         nValueRet = knapsack_result.GetSelectedValue();
+        result = knapsack_result;
         return true;
     } else if (srd_result.input_fees < knapsack_result.input_fees) {
         setCoinsRet = srd_result.selected_inputs;
         nValueRet = srd_result.GetSelectedValue();
+        result = srd_result;
         return true;
     }
 
@@ -2423,17 +2430,20 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     if (srd_result.selected_inputs.size() > knapsack_result.selected_inputs.size()) {
         setCoinsRet = srd_result.selected_inputs;
         nValueRet = srd_result.GetSelectedValue();
+        result = srd_result;
         return true;
     } else {
         // srd_coins.size() <= knapsack_result.selected_inputs.size()
         setCoinsRet = knapsack_result.selected_inputs;
         nValueRet = knapsack_result.GetSelectedValue();
+        result = knapsack_result;
         return true;
     }
 }
 
 bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params) const
 {
+    SelectionResult result;
     std::vector<COutput> vCoins(vAvailableCoins);
     CAmount value_to_select = nTargetValue;
 
@@ -2511,19 +2521,23 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         Shuffle(vCoins.begin(), vCoins.end(), FastRandomContext());
     }
     bool res = value_to_select <= 0 ||
-        SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(1, 6, 0), vCoins, setCoinsRet, nValueRet, coin_selection_params) ||
-        SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(1, 1, 0), vCoins, setCoinsRet, nValueRet, coin_selection_params) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, 2), vCoins, setCoinsRet, nValueRet, coin_selection_params)) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, std::min((size_t)4, max_ancestors/3), std::min((size_t)4, max_descendants/3)), vCoins, setCoinsRet, nValueRet, coin_selection_params)) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, max_ancestors/2, max_descendants/2), vCoins, setCoinsRet, nValueRet, coin_selection_params)) ||
-        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, max_ancestors-1, max_descendants-1, true /* include_partial_groups */), vCoins, setCoinsRet, nValueRet, coin_selection_params)) ||
-        (m_spend_zero_conf_change && !fRejectLongChains && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max(), true /* include_partial_groups */), vCoins, setCoinsRet, nValueRet, coin_selection_params));
+        SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(1, 6, 0), vCoins, setCoinsRet, nValueRet, coin_selection_params, result) ||
+        SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(1, 1, 0), vCoins, setCoinsRet, nValueRet, coin_selection_params, result) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, 2), vCoins, setCoinsRet, nValueRet, coin_selection_params, result)) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, std::min((size_t)4, max_ancestors/3), std::min((size_t)4, max_descendants/3)), vCoins, setCoinsRet, nValueRet, coin_selection_params, result)) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, max_ancestors/2, max_descendants/2), vCoins, setCoinsRet, nValueRet, coin_selection_params, result)) ||
+        (m_spend_zero_conf_change && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, max_ancestors-1, max_descendants-1, true /* include_partial_groups */), vCoins, setCoinsRet, nValueRet, coin_selection_params, result)) ||
+        (m_spend_zero_conf_change && !fRejectLongChains && SelectCoinsMinConf(value_to_select, CoinEligibilityFilter(0, 1, std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max(), true /* include_partial_groups */), vCoins, setCoinsRet, nValueRet, coin_selection_params, result));
 
     // because SelectCoinsMinConf clears the setCoinsRet, we now add the possible inputs to the coinset
     util::insert(setCoinsRet, setPresetCoins);
+    result.AddInput(preset_inputs);
 
     // add preset inputs to the total value selected
     nValueRet += nValueFromPresetInputs;
+
+    setCoinsRet = result.selected_inputs;
+    nValueRet = result.GetSelectedValue();
 
     return res;
 }
