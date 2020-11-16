@@ -2392,10 +2392,6 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     CAmount knapsack_value;
     SelectionResult knapsack_result;
     bool knapsack_ret = KnapsackSolver(nTargetValue + change_fee, all_groups, knapsack_coins, knapsack_value, knapsack_result);
-    CAmount knapsack_fees = 0;
-    for (const auto& coin : knapsack_coins) {
-        knapsack_fees += coin.m_fee;
-    }
 
     std::set<CInputCoin> srd_coins;
     CAmount srd_value;
@@ -2406,8 +2402,8 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 
     if (knapsack_ret && !srd_ret) {
-        setCoinsRet = knapsack_coins;
-        nValueRet = knapsack_value;
+        setCoinsRet = knapsack_result.selected_inputs;
+        nValueRet = knapsack_result.GetSelectedValue();
         return true;
     } else if (!knapsack_ret && srd_ret) {
         setCoinsRet = srd_coins;
@@ -2420,25 +2416,25 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     }
 
     // Both succeeded, choose the one with the smaller fees
-    if (knapsack_fees < srd_fees) {
-        setCoinsRet = knapsack_coins;
-        nValueRet = knapsack_value;
+    if (knapsack_result.input_fees < srd_fees) {
+        setCoinsRet = knapsack_result.selected_inputs;
+        nValueRet = knapsack_result.GetSelectedValue();
         return true;
-    } else if (srd_fees < knapsack_fees) {
+    } else if (srd_fees < knapsack_result.input_fees) {
         setCoinsRet = srd_coins;
         nValueRet = srd_value;
         return true;
     }
 
     // Same fees, choose one that consolidates more (more inputs) or Knapsack in the event they are the same
-    if (srd_coins.size() > knapsack_coins.size()) {
+    if (srd_coins.size() > knapsack_result.selected_inputs.size()) {
         setCoinsRet = srd_coins;
         nValueRet = srd_value;
         return true;
     } else {
-        // srd_coins.size() <= knapsack_coins.size()
-        setCoinsRet = knapsack_coins;
-        nValueRet = knapsack_value;
+        // srd_coins.size() <= knapsack_result.selected_inputs.size()
+        setCoinsRet = knapsack_result.selected_inputs;
+        nValueRet = knapsack_result.GetSelectedValue();
         return true;
     }
 }

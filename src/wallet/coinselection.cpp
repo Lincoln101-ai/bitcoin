@@ -234,6 +234,7 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
 bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, SelectionResult& result)
 {
     setCoinsRet.clear();
+    result.Clear();
     nValueRet = 0;
 
     // List of values less than target
