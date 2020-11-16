@@ -60,9 +60,8 @@ struct {
 
 static const size_t TOTAL_TRIES = 100000;
 
-bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret, SelectionResult& result)
+bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, SelectionResult& result)
 {
-    out_set.clear();
     result.Clear();
     CAmount curr_value = 0;
 
@@ -157,12 +156,9 @@ bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_t
     }
 
     // Set output set
-    value_ret = 0;
     for (size_t i = 0; i < best_selection.size(); ++i) {
         if (best_selection.at(i)) {
-            util::insert(out_set, utxo_pool.at(i).m_outputs);
             util::insert(result.selected_inputs, utxo_pool.at(i).m_outputs);
-            value_ret += utxo_pool.at(i).m_value;
         }
     }
     // Set the input fees in the result

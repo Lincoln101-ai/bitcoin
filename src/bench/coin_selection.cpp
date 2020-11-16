@@ -95,18 +95,15 @@ static void BnBExhaustion(benchmark::Bench& bench)
     // Setup
     testWallet.SetupLegacyScriptPubKeyMan();
     std::vector<OutputGroup> utxo_pool;
-    CoinSet selection;
-    CAmount value_ret = 0;
     SelectionResult result;
 
     bench.run([&] {
         // Benchmark
         CAmount target = make_hard_case(17, utxo_pool);
-        SelectCoinsBnB(utxo_pool, target, 0, selection, value_ret, result); // Should exhaust
+        SelectCoinsBnB(utxo_pool, target, 0, result); // Should exhaust
 
         // Cleanup
         utxo_pool.clear();
-        selection.clear();
     });
 }
 
