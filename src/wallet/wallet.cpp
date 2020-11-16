@@ -2804,6 +2804,7 @@ bool CWallet::CreateTransactionInternal(
     int nBytes;
     {
         std::set<CInputCoin> setCoins;
+        SelectionResult selection;
         LOCK(cs_wallet);
         txNew.nLockTime = GetLocktimeForNewTransaction(chain(), GetLastBlockHash(), GetLastBlockHeight());
         {
@@ -2897,7 +2898,6 @@ bool CWallet::CreateTransactionInternal(
             // Calculate the fees for things that aren't inputs
             CAmount not_input_fees = coin_selection_params.effective_fee.GetFee(coin_selection_params.tx_noinputs_size);
 
-            SelectionResult selection;
             if (!SelectCoins(vAvailableCoins, nValue + not_input_fees, setCoins, input_sum, coin_control, coin_selection_params, selection))
             {
                 error = _("Insufficient funds");
@@ -2905,11 +2905,11 @@ bool CWallet::CreateTransactionInternal(
             }
 
             CAmount selected_eff = 0;
-            for (const CInputCoin& coin : setCoins) {
+            for (const CInputCoin& coin : selection.selected_inputs) {
                 selected_eff += coin.effective_value;
             }
 
-            const CAmount nChange = input_sum - nValue;
+            const CAmount nChange = selection.GetSelectedValue() - nValue;
             if (nChange > 0)
             {
                 // Fill a vout to ourself
@@ -2949,7 +2949,7 @@ bool CWallet::CreateTransactionInternal(
 
             // Dummy fill vin for maximum size estimation
             //
-            for (const auto& coin : setCoins) {
+            for (const auto& coin : selection.selected_inputs) {
                 txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
             }
 
@@ -3023,8 +3023,7 @@ bool CWallet::CreateTransactionInternal(
 
         // Shuffle selected coins and fill in final vin
         txNew.vin.clear();
-        std::vector<CInputCoin> selected_coins(setCoins.begin(), setCoins.end());
-        Shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
+        std::vector<CInputCoin> selected_coins = selection.GetInputVector();
 
         // Note how the sequence number is set to non-maxint so that
         // the nLockTime set above actually works.

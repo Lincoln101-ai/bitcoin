@@ -624,7 +624,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CCoinControl cc;
         SelectionResult res;
         BOOST_CHECK(testWallet.SelectCoins(vCoins, target, out_set, out_value, cc, cs_params, res));
-        BOOST_CHECK_GE(out_value, target);
+        BOOST_CHECK_GE(res.GetSelectedValue(), target);
     }
 }
 
