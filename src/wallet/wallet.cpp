@@ -2378,7 +2378,8 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibil
     CAmount cost_of_change = GetDiscardRate(*this).GetFee(coin_selection_params.change_spend_size) + change_fee;
 
     std::vector<OutputGroup> positive_groups = GroupOutputs(coins, !coin_selection_params.m_avoid_partial_spends, effective_feerate, long_term_feerate, eligibility_filter, true /* positive_only */);
-    if (SelectCoinsBnB(positive_groups, nTargetValue, cost_of_change, setCoinsRet, nValueRet)) {
+    SelectionResult bnb_result;
+    if (SelectCoinsBnB(positive_groups, nTargetValue, cost_of_change, setCoinsRet, nValueRet, bnb_result)) {
         return true;
     }
 

@@ -118,7 +118,7 @@ struct SelectionResult
     void AddInput(const OutputGroup& group);
 };
 
-bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret);
+bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret, SelectionResult& result);
 
 bool SelectCoinsSRD(std::vector<OutputGroup>& utxo_pool, const CAmount& target_value, std::set<CInputCoin>& out_set, CAmount& value_ret);
 

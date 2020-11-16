@@ -60,9 +60,10 @@ struct {
 
 static const size_t TOTAL_TRIES = 100000;
 
-bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret)
+bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret, SelectionResult& result)
 {
     out_set.clear();
+    result.Clear();
     CAmount curr_value = 0;
 
     std::vector<bool> curr_selection; // select the utxo at this index
@@ -160,9 +161,12 @@ bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_t
     for (size_t i = 0; i < best_selection.size(); ++i) {
         if (best_selection.at(i)) {
             util::insert(out_set, utxo_pool.at(i).m_outputs);
+            util::insert(result.selected_inputs, utxo_pool.at(i).m_outputs);
             value_ret += utxo_pool.at(i).m_value;
         }
     }
+    // Set the input fees in the result
+    result.input_fees = result.GetSelectedValue() - actual_target;
 
     return true;
 }
