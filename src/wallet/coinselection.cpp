@@ -353,3 +353,47 @@ bool OutputGroup::EligibleForSpending(const CoinEligibilityFilter& eligibility_f
         && m_ancestors <= eligibility_filter.max_ancestors
         && m_descendants <= eligibility_filter.max_descendants;
 }
+
+CAmount SelectionResult::GetSelectedValue() const
+{
+    CAmount ret = 0;
+    for (const auto& coin : selected_inputs) {
+        ret += coin.txout.nValue;
+    }
+    return ret;
+}
+
+bool SelectionResult::EquivalentResult(const SelectionResult& other) const
+{
+    std::vector<CAmount> this_amts;
+    std::vector<CAmount> other_amts;
+    for (const auto& coin : selected_inputs) {
+        this_amts.push_back(coin.txout.nValue);
+    }
+    for (const auto& coin : other.selected_inputs) {
+        other_amts.push_back(coin.txout.nValue);
+    }
+    std::sort(this_amts.begin(), this_amts.end());
+    std::sort(other_amts.begin(), other_amts.end());
+
+    std::pair<std::vector<CAmount>::iterator, std::vector<CAmount>::iterator> ret = mismatch(this_amts.begin(), this_amts.end(), other_amts.begin());
+    return ret.first == this_amts.end() && ret.second == other_amts.end();
+}
+
+bool SelectionResult::EqualResult(const SelectionResult& other) const
+{
+    std::pair<std::set<CInputCoin>::iterator, std::set<CInputCoin>::iterator> ret = mismatch(selected_inputs.begin(), selected_inputs.end(), other.selected_inputs.begin());
+    return ret.first == selected_inputs.end() && ret.second == other.selected_inputs.end();
+}
+
+void SelectionResult::Clear()
+{
+    selected_inputs.clear();
+    input_fees = 0;
+}
+
+void SelectionResult::AddInput(const OutputGroup& group)
+{
+    util::insert(selected_inputs, group.m_outputs);
+    input_fees += group.fee;
+}

@@ -93,6 +93,31 @@ struct OutputGroup
     bool EligibleForSpending(const CoinEligibilityFilter& eligibility_filter) const;
 };
 
+struct SelectionResult
+{
+    /** Set of inputs selected by the algorithm to use in the transaction */
+    std::set<CInputCoin> selected_inputs;
+    /** Amount of fees that cover all of the inputs.
+     *  Because we include the fees for transaction overhead and outputs in the
+     *  selection target, we are unable to account for those here.
+     *  This is not a function because the fees we pay may differ from the fee set
+     *  in the CInputCoins as some algorithms will overpay the fee a little bit to
+     *  hit a specific target.
+     */
+    CAmount input_fees{0};
+
+    /** Get the sum of the input values */
+    CAmount GetSelectedValue() const;
+    /** Check if this selection is equivalent to another one. Equivalent means same input values, but maybe different inputs (i.e. same value, different prevout) */
+    bool EquivalentResult(const SelectionResult& other) const;
+    /** Check if this selection is equal to another one. Equal means same inputs (i.e same value and prevout) */
+    bool EqualResult(const SelectionResult& other) const;
+
+    void Clear();
+
+    void AddInput(const OutputGroup& group);
+};
+
 bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret);
 
 bool SelectCoinsSRD(std::vector<OutputGroup>& utxo_pool, const CAmount& target_value, std::set<CInputCoin>& out_set, CAmount& value_ret);
