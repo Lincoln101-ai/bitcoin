@@ -389,3 +389,10 @@ void SelectionResult::AddInput(const OutputGroup& group)
     util::insert(selected_inputs, group.m_outputs);
     input_fees += group.fee;
 }
+
+std::vector<CInputCoin> SelectionResult::GetInputVector() const
+{
+    std::vector<CInputCoin> coins(selected_inputs.begin(), selected_inputs.end());
+    Shuffle(coins.begin(), coins.end(), FastRandomContext());
+    return coins;
+}
