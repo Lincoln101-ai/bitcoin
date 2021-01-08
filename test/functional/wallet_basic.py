@@ -6,7 +6,7 @@
 from decimal import Decimal
 from itertools import product
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import BitcoinWalletTestFramework
 from test_framework.util import (
     assert_array_result,
     assert_equal,
@@ -18,7 +18,7 @@ from test_framework.wallet_util import test_address
 OUT_OF_RANGE = "Amount out of range"
 
 
-class WalletTest(BitcoinTestFramework):
+class WalletTest(BitcoinWalletTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.extra_args = [[
