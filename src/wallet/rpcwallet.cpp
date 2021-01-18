@@ -3532,7 +3532,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
 
         result.pushKV("txid", txid.GetHex());
     } else {
-        PartiallySignedTransaction psbtx(mtx);
+        PartiallySignedTransaction psbtx(mtx, 2 /* version */);
         bool complete = false;
         const TransactionError err = pwallet->FillPSBT(psbtx, complete, SIGHASH_ALL, false /* sign */, true /* bip32derivs */);
         CHECK_NONFATAL(err == TransactionError::OK);
@@ -4158,7 +4158,7 @@ static RPCHelpMan send()
             }
 
             // Make a blank psbt
-            PartiallySignedTransaction psbtx(rawTx);
+            PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
 
             // First fill transaction with our data without signing,
             // so external signers are not asked sign more than once.
@@ -4439,7 +4439,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     FundTransaction(*pwallet, rawTx, fee, change_position, request.params[3], coin_control, /* override_min_fee */ true);
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx(rawTx);
+    PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
 
     // Fill transaction with out data but don't sign
     bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
