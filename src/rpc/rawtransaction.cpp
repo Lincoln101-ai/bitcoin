@@ -1609,6 +1609,7 @@ static RPCHelpMan createpsbt()
                     {"locktime", RPCArg::Type::NUM, RPCArg::Default{0}, "Raw locktime. Non-0 value also locktime-activates inputs"},
                     {"replaceable", RPCArg::Type::BOOL, RPCArg::Default{false}, "Marks this transaction as BIP125 replaceable.\n"
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
+                    {"psbt_version", RPCArg::Type::NUM, RPCArg::Default{2}, "The PSBT version number to use."},
                 },
                 RPCResult{
                     RPCResult::Type::STR, "", "The resulting raw transaction (base64-encoded string)"
@@ -1624,6 +1625,7 @@ static RPCHelpMan createpsbt()
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
         UniValue::VBOOL,
+        UniValue::VNUM,
         }, true
     );
 
@@ -1634,7 +1636,15 @@ static RPCHelpMan createpsbt()
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
+    uint32_t psbt_version = 2;
+    if (!request.params[4].isNull()) {
+        psbt_version = request.params[4].get_int();
+    }
+    if (psbt_version != 2 && psbt_version != 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2 or 0");
+    }
+
+    PartiallySignedTransaction psbtx(rawTx, psbt_version);
 
     // Serialize the PSBT
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
