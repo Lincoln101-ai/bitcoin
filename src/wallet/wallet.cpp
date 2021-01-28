@@ -4752,6 +4752,19 @@ bool CWallet::MigrateToDescriptor(bilingual_str& error, std::vector<bilingual_st
         return false;
     }
 
+    // Remove this wallet from the list of wallets while we mess with the database
+    // This is a workaround to prevent MaybeCompactWalletDB from accessing m_database while we are deleting and changing it
+    std::shared_ptr<CWallet> this_wallet{nullptr};
+    {
+        LOCK(cs_wallets);
+        std::vector<std::shared_ptr<CWallet>>::iterator i = std::find_if(vpwallets.begin(), vpwallets.end(), [this](std::shared_ptr<CWallet> w) {
+                return w.get() == this;
+            });
+        assert(i != vpwallets.end());
+        this_wallet = *i;
+        vpwallets.erase(i);
+    }
+
     // Close this database and delete the file
     fs::path db_path = fs::path(m_database->Filename());
     fs::path db_dir = db_path.branch_path();
@@ -4768,6 +4781,12 @@ bool CWallet::MigrateToDescriptor(bilingual_str& error, std::vector<bilingual_st
     assert(new_db); // This is to prevent doing anything further with this wallet. The original file was deleted, but a backup exists.
     m_database.reset();
     m_database = std::move(new_db);
+
+    // Put the wallet back in vpwallets because we are now done with messing with m_database
+    {
+        LOCK(cs_wallets);
+        vpwallets.push_back(this_wallet);
+    }
 
     // Write existing records into the new DB
     batch = m_database->MakeBatch();
