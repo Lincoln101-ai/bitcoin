@@ -287,9 +287,6 @@ class BIP32PubkeyProvider final : public PubkeyProvider
     CExtPubKey m_root_extkey;
     KeyPath m_path;
     DeriveType m_derive;
-    // Cache of the parent of the final derived pubkeys.
-    // Primarily useful for situations when no read_cache is provided
-    CExtPubKey m_cached_xpub;
 
     bool GetExtKey(const SigningProvider& arg, CExtKey& ret) const
     {
@@ -351,9 +348,6 @@ public:
                 final_extkey = parent_extkey;
                 if (m_derive == DeriveType::UNHARDENED) der = parent_extkey.Derive(final_extkey, pos);
             }
-        } else if (m_cached_xpub.pubkey.IsValid() && m_derive != DeriveType::HARDENED) {
-            parent_extkey = final_extkey = m_cached_xpub;
-            if (m_derive == DeriveType::UNHARDENED) der = parent_extkey.Derive(final_extkey, pos);
         } else if (IsHardened()) {
             CExtKey xprv;
             if (!GetDerivedExtKey(arg, xprv)) return false;
@@ -374,11 +368,6 @@ public:
 
         final_info_out = final_info_out_tmp;
         key_out = final_extkey.pubkey;
-
-        // We rely on the consumer to check that m_derive isn't HARDENED as above
-        // But we can't have already cached something in case we read something from the cache
-        // and parent_extkey isn't actually the parent.
-        if (!m_cached_xpub.pubkey.IsValid()) m_cached_xpub = parent_extkey;
 
         if (write_cache) {
             // Only cache parent if there is any unhardened derivation
