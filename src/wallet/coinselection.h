@@ -56,6 +56,31 @@ public:
     }
 };
 
+struct CoinSelectionParams
+{
+    size_t change_output_size = 0;
+    size_t change_spend_size = 0;
+    CFeeRate m_effective_feerate;
+    CFeeRate m_long_term_feerate;
+    CFeeRate m_discard_feerate;
+    size_t tx_noinputs_size = 0;
+    //! Indicate that we are subtracting the fee from outputs
+    bool m_subtract_fee_outputs = false;
+    bool m_avoid_partial_spends = false;
+
+    CoinSelectionParams(size_t change_output_size, size_t change_spend_size, CFeeRate effective_feerate,
+                        CFeeRate long_term_feerate, CFeeRate discard_feerate, size_t tx_noinputs_size, bool avoid_partial) :
+        change_output_size(change_output_size),
+        change_spend_size(change_spend_size),
+        m_effective_feerate(effective_feerate),
+        m_long_term_feerate(long_term_feerate),
+        m_discard_feerate(discard_feerate),
+        tx_noinputs_size(tx_noinputs_size),
+        m_avoid_partial_spends(avoid_partial)
+    {}
+    CoinSelectionParams() {}
+};
+
 struct CoinEligibilityFilter
 {
     const int conf_mine;
@@ -79,18 +104,17 @@ struct OutputGroup
     size_t m_descendants{0};
     CAmount effective_value{0};
     CAmount fee{0};
-    CFeeRate m_effective_feerate{0};
     CAmount long_term_fee{0};
-    CFeeRate m_long_term_feerate{0};
+    CoinSelectionParams m_cs_params;
 
     OutputGroup() {}
-    OutputGroup(const CFeeRate& effective_feerate, const CFeeRate& long_term_feerate) :
-        m_effective_feerate(effective_feerate),
-        m_long_term_feerate(long_term_feerate)
+    OutputGroup(const CoinSelectionParams& params) :
+        m_cs_params(params)
     {}
 
     void Insert(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants, bool positive_only);
     bool EligibleForSpending(const CoinEligibilityFilter& eligibility_filter) const;
+    CAmount GetSelectionAmount() const;
 };
 
 bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& actual_target, const CAmount& cost_of_change, std::set<CInputCoin>& out_set, CAmount& value_ret);
